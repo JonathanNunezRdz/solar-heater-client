@@ -15,6 +15,14 @@ function App() {
 	// );
 	const [rotation, setRotation] = useState({ x: 0.0, y: 0.0 });
 	const [active, setActive] = useState(false);
+	const [ledStatus, setLedStatus] = useState(false);
+
+	const requestLedStatus = async status => {
+		const requestStatus = status ? '/led_on' : '/led_off';
+		const { data } = await api.get(requestStatus);
+		if (data.led_status === 1) return setLedStatus(true);
+		if (data.led_status === 0) return setLedStatus(false);
+	};
 
 	const requestActive = async () => {
 		const { data } = await api.get();
@@ -39,6 +47,15 @@ function App() {
 				<Col xs={6} className="text-center">
 					<Button onClick={requestActive}>Request Active</Button>
 					<h1>Sensor Status: {active ? 'On' : 'Off'}</h1>
+				</Col>
+				<Col xs={6} className="text-center">
+					<Button
+						onClick={() => requestLedStatus(!ledStatus)}
+						disabled={!active}
+					>
+						Toggle Led
+					</Button>
+					<h1>Led Status: {ledStatus ? 'On' : 'Off'}</h1>
 				</Col>
 			</Row>
 		</Container>
