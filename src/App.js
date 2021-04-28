@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Col, Container, Row } from 'react-bootstrap';
+import { Button, Col, Container, Form, Row } from 'react-bootstrap';
 import api from './services/api';
 // import { Canvas } from '@react-three/fiber';
 // import Box from './Box';
@@ -15,18 +15,21 @@ function App() {
 	// );
 	const [rotation, setRotation] = useState({ x: 0.0, y: 0.0 });
 	const [active, setActive] = useState(false);
-	const [ledStatus, setLedStatus] = useState(false);
+	const [motorStatus, setMotorStatus] = useState(false);
+	const [duration, setDuration] = useState(10.0);
+	const [canToggleMotor, setCanToggleMotor] = useState(true);
+	const [previousDuration, setPreviousDuration] = useState(0.0);
 
-	const requestLedStatus = async status => {
-		const requestStatus = status ? '/led_on' : '/led_off';
+	const requestStatus = async status => {
+		const requestStatus = status ? '/pin_on' : '/pin_off';
 		const { data } = await api.get(requestStatus);
-		if (data.led_status === 1) return setLedStatus(true);
-		if (data.led_status === 0) return setLedStatus(false);
+		if (data.status === 1) return setMotorStatus(true);
+		if (data.status === 0) return setMotorStatus(false);
 	};
 
 	const requestActive = async () => {
 		const { data } = await api.get();
-		if (data.message === 'mpu6050 turned on') setActive(true);
+		if (data.status === 1) setActive(true);
 	};
 
 	const requestRotation = async () => {
@@ -34,28 +37,93 @@ function App() {
 		setRotation({ x: data.x_rotation, y: data.y_rotation });
 	};
 
+	const requestToggle = async event => {
+		event.preventDefault();
+		setCanToggleMotor(false);
+		const { data } = await api.get('/toggle_motor', {
+			params: { duration },
+		});
+		if (data.status === 1) {
+			setCanToggleMotor(true);
+			setPreviousDuration(data.duration);
+		}
+	};
+
 	return (
 		<Container>
 			<Row>
-				<Col xs={6} className="text-center">
-					<Button onClick={requestRotation} disabled={!active}>
-						Request Rotation
-					</Button>
-					<h1>X: {rotation.x.toFixed(2)}</h1>
-					<h1>Y: {rotation.y.toFixed(2)}</h1>
+				<Col xs={12} className="">
+					<div className="py-3">
+						<h1>
+							<span>Sensor Status: {active ? 'On' : 'Off'}</span>
+							<Button className="ml-3" onClick={requestActive}>
+								Request Active
+							</Button>
+						</h1>
+					</div>
 				</Col>
-				<Col xs={6} className="text-center">
-					<Button onClick={requestActive}>Request Active</Button>
-					<h1>Sensor Status: {active ? 'On' : 'Off'}</h1>
+				<Col xs={12} className="">
+					<div className="py-3">
+						<h1>
+							X: {rotation.x.toFixed(2)} Y:{' '}
+							{rotation.y.toFixed(2)}
+							<Button
+								className="ml-3"
+								onClick={requestRotation}
+								disabled={!active}
+							>
+								Request Rotation
+							</Button>
+						</h1>
+					</div>
 				</Col>
-				<Col xs={6} className="text-center">
-					<Button
-						onClick={() => requestLedStatus(!ledStatus)}
-						disabled={!active}
-					>
-						Toggle Led
-					</Button>
-					<h1>Led Status: {ledStatus ? 'On' : 'Off'}</h1>
+				<Col xs={12} className="">
+					<div className="py-3">
+						<h1>
+							<span>
+								Motor Status: {motorStatus ? 'On' : 'Off'}
+							</span>
+							<Button
+								onClick={() => requestStatus(!motorStatus)}
+								disabled={!active}
+								className="ml-3"
+							>
+								Toggle Motor
+							</Button>
+						</h1>
+					</div>
+				</Col>
+				<Col xs={12} className="">
+					<Form onSubmit={requestToggle} className="py-3">
+						<Form.Group controlId="toggleMotor">
+							<Form.Label>Duration for toggle (sec):</Form.Label>
+							<Form.Control
+								type="number"
+								value={duration}
+								onChange={event =>
+									setDuration(
+										Number(event.target.value) >= 0.0
+											? Number(event.target.value)
+											: 0,
+									)
+								}
+							/>
+							<Form.Text>
+								{previousDuration !== 0.0
+									? `Toggled for ${
+											previousDuration * 1000
+									  } milliseconds.`
+									: ''}
+							</Form.Text>
+						</Form.Group>
+						<Button
+							type="submit"
+							variant="primary"
+							disabled={!canToggleMotor || !active}
+						>
+							Toggle Motor
+						</Button>
+					</Form>
 				</Col>
 			</Row>
 		</Container>
