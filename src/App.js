@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Col, Container, Form, Row } from 'react-bootstrap';
 import api from './services/api';
+import { CSVLink } from 'react-csv';
 // import { Canvas } from '@react-three/fiber';
 // import Box from './Box';
 
@@ -19,12 +20,15 @@ function App() {
 	const [duration, setDuration] = useState(10.0);
 	const [canToggleMotor, setCanToggleMotor] = useState(true);
 	const [previousDuration, setPreviousDuration] = useState(0.0);
+	const [canRequestAverages, setCanRequestAverages] = useState(true);
+	const [showDownloadLink, setShowDownloadLink] = useState(false);
+	const [rotationData, setRotationData] = useState(null);
 
 	const requestStatus = async status => {
-		const requestStatus = status ? '/pin_on' : '/pin_off';
+		const requestStatus = status ? '/motor_on' : '/motor_off';
 		const { data } = await api.get(requestStatus);
-		if (data.status === 1) return setMotorStatus(true);
-		if (data.status === 0) return setMotorStatus(false);
+		if (data.motor_status === 1) return setMotorStatus(true);
+		if (data.motor_status === 0) return setMotorStatus(false);
 	};
 
 	const requestActive = async () => {
@@ -49,6 +53,34 @@ function App() {
 		}
 	};
 
+	const requestAverages = async event => {
+		event.preventDefault();
+		setCanRequestAverages(false);
+		setMotorStatus(true);
+		setCanToggleMotor(false);
+		setRotationData(null);
+		setShowDownloadLink(false);
+		try {
+			const { data } = await api.get('/get_averages');
+			setRotationData(data.averages);
+			setShowDownloadLink(true);
+		} catch (error) {
+			console.error(error);
+		}
+		setCanRequestAverages(true);
+		setMotorStatus(false);
+		setCanToggleMotor(true);
+	};
+
+	useEffect(() => {
+		requestActive();
+	}, []);
+
+	const headers = [
+		{ label: 'Rotation X', key: 'x_rotation' },
+		{ label: 'Rotation Y', key: 'y_rotation' },
+	];
+
 	return (
 		<Container>
 			<Row>
@@ -56,7 +88,11 @@ function App() {
 					<div className="py-3">
 						<h1>
 							<span>Sensor Status: {active ? 'On' : 'Off'}</span>
-							<Button className="ml-3" onClick={requestActive}>
+							<Button
+								className="ml-3"
+								onClick={requestActive}
+								disabled={active}
+							>
 								Request Active
 							</Button>
 						</h1>
@@ -90,7 +126,27 @@ function App() {
 							>
 								Toggle Motor
 							</Button>
+							<Button
+								onClick={requestAverages}
+								disabled={
+									!active ||
+									!canRequestAverages ||
+									motorStatus
+								}
+								className="ml-3"
+							>
+								Request Averages
+							</Button>
 						</h1>
+						{showDownloadLink && (
+							<CSVLink
+								filename="solar_rotation.csv"
+								headers={headers}
+								data={rotationData}
+							>
+								Download CSV
+							</CSVLink>
+						)}
 					</div>
 				</Col>
 				<Col xs={12} className="">
@@ -119,7 +175,7 @@ function App() {
 						<Button
 							type="submit"
 							variant="primary"
-							disabled={!canToggleMotor || !active}
+							disabled={!active || !canToggleMotor}
 						>
 							Toggle Motor
 						</Button>
